@@ -29,7 +29,7 @@ export function initWhatsApp() {
   waClient.on('ready', () => {
     isReady = true;
     console.log('WhatsApp client ready');
-    if (readyResolve) readyResolve(true);
+    if (readyResolve) readyResolve(true
   });
 
   waClient.on('auth_failure', (msg) => console.error('WA auth failure:', msg));
