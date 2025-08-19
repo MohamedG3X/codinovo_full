@@ -1,0 +1,28 @@
+# OS / IDE
+.DS_Store
+.idea/
+*.iml
+
+# Node
+node_modules/
+web/node_modules/
+server/node_modules/
+dist/
+build/
+coverage/
+
+# Env & local config
+.env
+server/.env
+*.local
+
+# Uploaded/generated files
+server/uploads/
+server/invoices/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
