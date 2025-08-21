@@ -1,3 +1,4 @@
+// server/src/models/ApiUser.js
 import mongoose from 'mongoose';
 
 const ApiUserSchema = new mongoose.Schema({
@@ -9,16 +10,12 @@ const ApiUserSchema = new mongoose.Schema({
 
   companyName: { type: String, default: '' },
   contactEmail: { type: String, default: '' },
-
   contactPhone: { type: String, unique: true, sparse: true, index: true, default: '' },
-
   applicantPosition: { type: String, default: '' },
 
-  // Pricing & wallet (pricePerMessage will be auto-kept in sync with level by routes)
   pricePerMessage: { type: Number, default: 0 },
   walletBalance: { type: Number, default: 0 },
 
-  // Levels
   level: { type: Number, enum: [1, 2, 3], default: 1, index: true },
   totalSent: { type: Number, default: 0 },
 
@@ -29,11 +26,19 @@ const ApiUserSchema = new mongoose.Schema({
 
   signupOtpCode: { type: String, default: null },
   signupOtpExpiresAt: { type: Date, default: null },
+
+  /* ---- Dedicated Number subscription (NEW) ---- */
+  dedicatedClientId: { type: String, default: null },     // LocalAuth clientId for this user
+  dedicatedSenderPhone: { type: String, default: '' },    // your prepared SIM number
+  dedicatedActiveUntil: { type: Date, default: null },    // if null or past => inactive
 }, { timestamps: true });
 
 ApiUserSchema.pre('save', function(next) {
   if (this.isModified('contactPhone') && typeof this.contactPhone === 'string') {
     this.contactPhone = this.contactPhone.replace(/\D/g, '');
+  }
+  if (this.isModified('dedicatedSenderPhone') && typeof this.dedicatedSenderPhone === 'string') {
+    this.dedicatedSenderPhone = this.dedicatedSenderPhone.replace(/\D/g, '');
   }
   next();
 });

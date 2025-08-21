@@ -1,6 +1,7 @@
+// web/src/pages/Settings.jsx
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
-import useDataRefresh from '../hooks/useDataRefresh'; // ✅ already used
+import useDataRefresh from '../hooks/useDataRefresh';
 
 export default function Settings() {
   const [token, setToken] = useState('');
@@ -11,15 +12,13 @@ export default function Settings() {
 
   const [deposit, setDeposit] = useState(null);
 
-  // NEW: profile (username/phone read-only, email editable)
+  // profile + account
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState('');
   const [savingEmail, setSavingEmail] = useState(false);
-
-  // NEW: account info (added per your request)
   const [account, setAccount] = useState(null);
 
-  // Transactions state (already in your code)
+  // transactions
   const [txs, setTxs] = useState([]);
   const [txLoading, setTxLoading] = useState(true);
   const [txError, setTxError] = useState(null);
@@ -27,7 +26,7 @@ export default function Settings() {
 
   const headers = { Authorization: `Bearer ${localStorage.getItem('api_token')}` };
 
-  // ✅ central loader used by initial load, hook refreshes, and click-to-refresh
+  // central loader
   const load = async () => {
     try {
       const [tokenRes, tplRes, dueRes, balRes] = await Promise.all([
@@ -58,7 +57,7 @@ export default function Settings() {
       setAccount(acc?.data ?? null);
     } catch {}
 
-    // refresh transactions with current filter
+    // transactions
     try {
       let url = '/api/wallet/transactions';
       if (statusFilter !== 'ALL') url += `?status=${encodeURIComponent(statusFilter)}`;
@@ -75,33 +74,23 @@ export default function Settings() {
     }
   };
 
+  // initial loads
   useEffect(() => {
-    // original initial loads (kept intact)
-    api.get('/api/settings/service-token', { headers })
-      .then(({ data }) => setToken(data.token));
-    api.get('/api/settings/otp-template', { headers })
-      .then(({ data }) => setOtpTemplate(data.otpTemplate));
-    api.get('/api/billing/due-this-week', { headers })
-      .then(({ data }) => setDue(data));
-    api.get('/api/wallet/balance', { headers })
-      .then(({ data }) => setBalance(data.balance));
-    api.get('/api/deposit', { headers })
-      .then(({ data }) => setDeposit(data))
-      .catch(() => setDeposit(null));
+    api.get('/api/settings/service-token', { headers }).then(({ data }) => setToken(data.token));
+    api.get('/api/settings/otp-template', { headers }).then(({ data }) => setOtpTemplate(data.otpTemplate));
+    api.get('/api/billing/due-this-week', { headers }).then(({ data }) => setDue(data));
+    api.get('/api/wallet/balance', { headers }).then(({ data }) => setBalance(data.balance));
+    api.get('/api/deposit', { headers }).then(({ data }) => setDeposit(data)).catch(() => setDeposit(null));
     api.get('/api/settings/profile', { headers })
-      .then(({ data }) => {
-        setProfile(data);
-        setEmail(data?.contactEmail || '');
-      })
+      .then(({ data }) => { setProfile(data); setEmail(data?.contactEmail || ''); })
       .catch(() => {});
-    api.get('/api/settings/account', { headers })
-      .then(({ data }) => setAccount(data));
+    api.get('/api/settings/account', { headers }).then(({ data }) => setAccount(data));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ global auto-reload after any change (from your custom hook)
+  // global auto-reload after any change
   useDataRefresh(load);
 
-  // ✅ refresh transactions when filter changes (kept as-is)
+  // reload tx when filter changes
   useEffect(() => {
     let url = '/api/wallet/transactions';
     if (statusFilter !== 'ALL') url += `?status=${encodeURIComponent(statusFilter)}`;
@@ -118,11 +107,11 @@ export default function Settings() {
       .finally(() => setTxLoading(false));
   }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ✅ mutate then refresh immediately
+  // actions
   const saveTemplate = async () => {
     await api.patch('/api/settings/otp-template', { otpTemplate }, { headers });
     alert('Template saved');
-    await load(); // ← refresh after success
+    await load();
   };
 
   const submitTopup = async (e) => {
@@ -130,15 +119,11 @@ export default function Settings() {
     const formData = new FormData(e.target);
 
     try {
-      await api.post('/api/wallet/topup', formData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('api_token')}` }
-      });
+      await api.post('/api/wallet/topup', formData, { headers });
       alert('Top-up request sent! Please wait for admin approval.');
       e.target.reset();
 
-      // existing partial refreshes (kept)
-      api.get('/api/wallet/balance', { headers })
-        .then(({ data }) => setBalance(data.balance));
+      api.get('/api/wallet/balance', { headers }).then(({ data }) => setBalance(data.balance));
 
       if (statusFilter === 'ALL' || statusFilter === 'PENDING') {
         let url = '/api/wallet/transactions';
@@ -149,34 +134,23 @@ export default function Settings() {
           .finally(() => setTxLoading(false));
       }
 
-      // 🔄 ensure full page state is fresh
       await load();
     } catch (err) {
       const errCode = err?.response?.data?.error;
-      if (errCode === 'min_topup_is_10') {
-        alert('Minimum top-up is 10 USDT');
-      } else if (errCode === 'invalid_file_type') {
-        alert('Please upload an image file as proof.');
-      } else if (errCode === 'invalid_amount') {
-        alert('Please enter a valid amount.');
-      } else {
-        alert('Failed to submit top-up.');
-      }
+      if (errCode === 'min_topup_is_10') alert('Minimum top-up is 10 USDT');
+      else if (errCode === 'invalid_file_type') alert('Please upload an image file as proof.');
+      else if (errCode === 'invalid_amount') alert('Please enter a valid amount.');
+      else alert('Failed to submit top-up.');
     }
   };
 
-  // Save only the email
   const saveEmail = async () => {
     setSavingEmail(true);
     try {
-      const { data } = await api.patch(
-        '/api/settings/profile',
-        { contactEmail: email },
-        { headers: { ...headers, 'X-No-Reload': '1' } }
-      );
+      const { data } = await api.patch('/api/settings/profile', { contactEmail: email }, { headers: { ...headers, 'X-No-Reload': '1' } });
       setProfile(data);
       alert('Email updated');
-      await load(); // ← refresh after success
+      await load();
     } catch (e) {
       const code = e?.response?.data?.error;
       alert(code === 'invalid_email' ? 'Please enter a valid email' : 'Failed to update email');
@@ -185,24 +159,13 @@ export default function Settings() {
     }
   };
 
-  // ✅ CLICK-ANYWHERE-THEN-REFRESH (buttons/links/forms)
-  // This uses event delegation so you don't have to wire every button separately.
+  // click-anywhere refresh
   const onAnyAction = (e) => {
     const t = e.target;
-    const isAction =
-      (t?.closest && (
-        t.closest('button') ||
-        t.closest('a[href]') ||
-        t.closest('input[type="submit"]') ||
-        t.closest('[data-refresh]')
-      ));
-    if (isAction) {
-      // Defer to allow the action to complete, then refresh.
-      setTimeout(() => { load(); }, 0);
-    }
+    const isAction = (t?.closest && (t.closest('button') || t.closest('a[href]') || t.closest('input[type="submit"]') || t.closest('[data-refresh]')));
+    if (isAction) setTimeout(() => { load(); }, 0);
   };
 
-  // Minimum amount (prefer server config if present; fallback to 10)
   const minTopup = typeof deposit?.minAmount === 'number' ? deposit.minAmount : 10;
 
   return (
@@ -211,6 +174,12 @@ export default function Settings() {
       <div className="bg-white rounded shadow p-4">
         <h2 className="font-semibold text-lg">Wallet Balance</h2>
         <div className="mt-2 text-xl font-bold">{balance} USDT</div>
+      </div>
+
+      {/* Dedicated Number (Subscription) */}
+      <div className="bg-white rounded shadow p-4">
+        <h2 className="font-semibold text-lg">Dedicated Number</h2>
+        <DedicatedSection />
       </div>
 
       {/* My Profile */}
@@ -353,7 +322,6 @@ export default function Settings() {
         )}
 
         <form onSubmit={submitTopup} className="mt-4 space-y-3">
-          {/* HTML-level guard too */}
           <input
             type="number"
             name="amount"
@@ -452,14 +420,107 @@ export default function Settings() {
             <div>Messages: <b>{due.messageCount}</b></div>
             <div>Amount: <b>${due.amount}</b></div>
             <div className="text-gray-500">
-              Period: {new Date(due.weekStart).toLocaleDateString()} →{' '}
-              {new Date(due.weekEnd).toLocaleDateString()}
+              Period: {new Date(due.weekStart).toLocaleDateString()} → {new Date(due.weekEnd).toLocaleDateString()}
             </div>
           </div>
         ) : (
           <div className="text-gray-500 mt-2">No data.</div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ---------- Dedicated Number UI (User) ---------- */
+function DedicatedSection(){
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
+  const [companyName, setCompanyName] = useState('');
+  const [companyDescription, setCompanyDescription] = useState('');
+  const [logoFile, setLogoFile] = useState(null);
+  const headers = { Authorization: `Bearer ${localStorage.getItem('api_token')}` };
+
+  async function load(){
+    setLoading(true);
+    try{
+      const { data } = await api.get('/api/dedicated/my', { headers });
+      setData(data);
+    } finally { setLoading(false); }
+  }
+  useEffect(()=>{ load().catch(console.error); },[]); // eslint-disable-line
+
+  async function submitOrder(e){
+    e.preventDefault();
+    await api.post('/api/dedicated/order', { companyName, companyDescription }, { headers });
+    if (logoFile) {
+      const fd = new FormData();
+      fd.append('logo', logoFile);
+      await api.post('/api/dedicated/order/logo', fd, { headers });
+    }
+    alert('Order submitted. Admin will assign a number shortly.');
+    setCompanyName(''); setCompanyDescription(''); setLogoFile(null);
+    load();
+  }
+
+  async function renew(){
+    if (!confirm('Renew your dedicated number for $20 (30 days)?')) return;
+    try {
+      const { data } = await api.post('/api/dedicated/renew', {}, { headers });
+      alert('Renewed successfully. New expiry: ' + new Date(data.subscription.activeUntil).toLocaleString());
+      load();
+    } catch (e) {
+      const code = e?.response?.data?.error;
+      if (code === 'insufficient_balance_for_renew') {
+        alert('Not enough wallet balance. Please top up.');
+      } else if (code === 'not_assigned_yet') {
+        alert('Your number hasn’t been assigned yet. Please wait for admin to assign the client.');
+      } else {
+        alert('Failed to renew.');
+      }
+    }
+  }
+
+  if (loading) return <div>Loading…</div>;
+
+  const sub = data?.subscription;
+  const order = data?.order;
+  const active = !!sub?.active;
+  const hasAssignment = !!(order?.assignedClientId || sub?.clientId);
+
+  return (
+    <div className="space-y-3">
+      {active ? (
+        <div className="p-3 border rounded bg-green-50">
+          <div><b>Status:</b> Active</div>
+          <div><b>Sender:</b> {sub?.senderPhone || '—'}</div>
+          <div><b>Expires:</b> {sub?.activeUntil ? new Date(sub.activeUntil).toLocaleDateString() : '—'}</div>
+        </div>
+      ) : (
+        <div className="p-3 border rounded bg-yellow-50">
+          <div><b>Status:</b> Not active</div>
+          {order ? <div>Latest order status: {order.status}</div> : <div>No order found.</div>}
+        </div>
+      )}
+
+      {/* Renew button if user has any assignment (ASSIGNED/ACTIVE/EXPIRED) */}
+      {hasAssignment && (
+        <button onClick={renew} className="px-3 py-1 bg-indigo-600 text-white rounded">
+          Renew ($20 / 30 days)
+        </button>
+      )}
+
+      {/* Show order form only if there's no order or order flow is cancelled/expired AND no assignment */}
+      {(!order || order.status === 'CANCELLED') && !hasAssignment && (
+        <form onSubmit={submitOrder} className="space-y-2">
+          <div className="text-sm text-gray-600">Buy your dedicated sender for <b>$20 / month</b>.</div>
+          <input className="border p-2 rounded w-full" placeholder="Company Name" value={companyName} onChange={e=>setCompanyName(e.target.value)} required />
+          <textarea className="border p-2 rounded w-full" placeholder="Company Description" value={companyDescription} onChange={e=>setCompanyDescription(e.target.value)} />
+          <input type="file" accept="image/*" onChange={e=>setLogoFile(e.target.files?.[0] || null)} />
+          <button className="px-3 py-1 bg-gray-900 text-white rounded">Submit Order</button>
+        </form>
+      )}
+
+      <button onClick={load} className="px-2 py-1 border rounded text-sm">Refresh</button>
     </div>
   );
 }

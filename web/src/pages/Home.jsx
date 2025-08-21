@@ -21,7 +21,6 @@ export default function Home() {
   // load (or fake) live stats; used by useDataRefresh as well
   const loadStats = async () => {
     try {
-      const { data } = await api.get('/api/stats'); // OPTIONAL: your backend
       const m = Number(data?.messages) || 0;
       const u = Number(data?.users) || 0;
       const up = Number(data?.uptime) || 0;

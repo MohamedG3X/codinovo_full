@@ -1,3 +1,4 @@
+// web/src/pages/Admin/Users.jsx
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import React from 'react';
@@ -5,6 +6,7 @@ import React from 'react';
 export default function Users(){
   const [users, setUsers] = useState([]);
   const [form, setForm] = useState({ username:'', password:'', companyName:'', pricePerMessage:0.05 });
+
   useEffect(()=>{ load(); },[]);
   async function load(){
     const token = localStorage.getItem('admin_token');
@@ -12,13 +14,16 @@ export default function Users(){
     const { data } = await api.get('/admin/users', { headers });
     setUsers(data);
   }
+
   async function create(){
     const token = localStorage.getItem('admin_token');
     const headers = { Authorization: `Bearer ${token}` };
-    await api.post('/api/admin/invoices/generate', payload, { headers })
+    const payload = { username: form.username, password: form.password, companyName: form.companyName };
+    await api.post('/admin/users', payload, { headers }); // ✅ fixed
     setForm({ username:'', password:'', companyName:'', pricePerMessage:0.05 });
     load();
   }
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">API Users</h1>
@@ -29,7 +34,6 @@ export default function Users(){
             <input className="w-full border p-2" placeholder="Username" value={form.username} onChange={e=>setForm({...form, username:e.target.value})} />
             <input className="w-full border p-2" placeholder="Password" value={form.password} onChange={e=>setForm({...form, password:e.target.value})} />
             <input className="w-full border p-2" placeholder="Company Name" value={form.companyName} onChange={e=>setForm({...form, companyName:e.target.value})} />
-            <input className="w-full border p-2" type="number" step="0.001" placeholder="Price per message" value={form.pricePerMessage} onChange={e=>setForm({...form, pricePerMessage:parseFloat(e.target.value)})} />
             <button className="bg-black text-white px-4 py-2" onClick={create}>Create</button>
           </div>
         </div>
@@ -41,7 +45,7 @@ export default function Users(){
                 <tr key={u._id} className="border-b">
                   <td className="p-2">{u.username}</td>
                   <td className="p-2">{u.companyName}</td>
-                  <td className="p-2">${u.pricePerMessage?.toFixed(3)}</td>
+                  <td className="p-2">${Number(u.pricePerMessage ?? 0).toFixed(3)}</td>
                   <td className="p-2">{u.isActive?'Yes':'No'}</td>
                 </tr>
               ))}

@@ -14,6 +14,9 @@ import WalletTopups from './pages/Admin/WalletTopups'
 import InvoicesUser from './pages/InvoicesUser'
 import DepositConfigAdmin from './pages/Admin/DepositConfig';
 import LiveDemo from './pages/LiveDemo';
+import DedicatedOrders from './pages/Admin/DedicatedOrders.jsx';
+import GlobalSenders from './pages/Admin/GlobalSenders.jsx'; // <-- NEW
+
 
 
 
@@ -44,6 +47,10 @@ export default function App() {
         <Route path="/admin/invoices" element={<Guard expect="ADMIN"><AdminInvoices /></Guard>} />
         <Route path="/admin/wallet-topups" element={<Guard expect="ADMIN"><WalletTopups /></Guard>} />
         <Route path="/admin/deposit" element={<Guard expect="ADMIN"><DepositConfigAdmin /></Guard>} />
+        <Route path="/admin/dedicated" element={<DedicatedOrders />} />
+        <Route path="/admin/global-senders" element={<Guard expect="ADMIN"><GlobalSenders /></Guard>} /> {/* NEW */}
+
+
 
 
         {/* 404 */}

@@ -122,6 +122,7 @@ export default function AdminDashboard(){
         <Link to="/admin/users" className="px-3 py-2 bg-gray-900 text-white rounded">Manage Users</Link>
         <Link to="/admin/invoices" className="px-3 py-2 bg-gray-900 text-white rounded">Invoices</Link>
         <Link to="/admin/wallet-topups" className="px-3 py-2 bg-gray-900 text-white rounded">Wallet Top-ups</Link>
+        <Link to="/admin/dedicated" className="px-3 py-2 bg-gray-900 text-white rounded">Dedicated Numbers</Link>
       </div>
 
       {/* Pricing Tiers (Admin can edit L1/L2/L3 prices) */}

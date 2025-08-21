@@ -1,3 +1,5 @@
+///Users/mohamedeloker/Downloads/codinovo_full/server/src/routes/admin.routes.js
+
 import mongoose from 'mongoose';
 import { Router } from 'express';
 import multer from 'multer';

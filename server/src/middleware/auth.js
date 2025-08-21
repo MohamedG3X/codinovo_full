@@ -8,6 +8,12 @@ import Admin from '../models/Admin.js';
 // PUBLIC_MODE=true npm run dev
 const PUBLIC_MODE = String(process.env.PUBLIC_MODE || '').toLowerCase() === 'true';
 
+// ✅ NEW: control expiry handling via env
+// - JWT_IGNORE_EXP=true  -> accept tokens even if exp is past/future
+// - JWT_CLOCK_TOLERANCE=300 (seconds) -> allow small clock skew (optional)
+const IGNORE_EXP = String(process.env.JWT_IGNORE_EXP || '').toLowerCase() === 'true';
+const CLOCK_TOL = Number(process.env.JWT_CLOCK_TOLERANCE || 0); // seconds
+
 function passThrough(req, _res, next){
   // Minimal fake identity so downstream code that checks req.user doesn't crash.
   if (!req.user) req.user = { id: null, type: 'PUBLIC' };
@@ -32,7 +38,12 @@ export const requireAuth = (req, res, next) => {
   if (!token) return res.status(401).json({ error: 'no_token' });
 
   try {
-    const decoded = jwt.verify(token, config.jwtSecret); // { id, type, role? }
+    // ⬇️ CHANGED: ignoreExpiration + optional clockTolerance
+    const decoded = jwt.verify(
+      token,
+      config.jwtSecret,
+      { ignoreExpiration: IGNORE_EXP, clockTolerance: CLOCK_TOL }
+    );
     req.user = decoded;
     next();
   } catch (_err) {
