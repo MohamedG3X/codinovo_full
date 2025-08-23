@@ -11,7 +11,7 @@ export default function Settings() {
   const [balance, setBalance] = useState(0);
 
   const [deposit, setDeposit] = useState(null);
-
+  const [kcfg, setKcfg] = useState(null);
   // profile + account
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState('');
@@ -76,6 +76,7 @@ export default function Settings() {
 
   // initial loads
   useEffect(() => {
+    api.get('/api/kashier/config', { headers }).then(({ data }) => setKcfg(data)).catch(()=>{});
     api.get('/api/settings/service-token', { headers }).then(({ data }) => setToken(data.token));
     api.get('/api/settings/otp-template', { headers }).then(({ data }) => setOtpTemplate(data.otpTemplate));
     api.get('/api/billing/due-this-week', { headers }).then(({ data }) => setDue(data));
@@ -337,6 +338,15 @@ export default function Settings() {
         </form>
         <div className="text-xs text-gray-500 mt-2">Minimum top-up is {minTopup} USDT.</div>
       </div>
+      <div className="bg-white rounded shadow p-4 mt-6">
+  <h2 className="font-semibold text-lg">Top-Up by Card (Kashier)</h2>
+
+  {!kcfg ? (
+    <div className="text-gray-500 mt-2">Loading…</div>
+  ) : (
+    <KashierTopup rate={kcfg.rate} currency={kcfg.currency} />
+  )}
+</div>
 
       {/* Wallet Transactions */}
       <div className="bg-white rounded shadow p-4">
@@ -522,5 +532,61 @@ function DedicatedSection(){
 
       <button onClick={load} className="px-2 py-1 border rounded text-sm">Refresh</button>
     </div>
+  );
+}
+function KashierTopup({ rate, currency }) {
+  const [usdt, setUsdt] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const headers = { Authorization: `Bearer ${localStorage.getItem('api_token')}` };
+
+  const usdtNum = Number(usdt || 0);
+  const egp = usdtNum * Number(rate || 0);
+  const valid = !Number.isNaN(usdtNum) && usdtNum >= 10;
+
+  async function startTopup(e){
+    e.preventDefault();
+    if (!valid) return;
+    setBusy(true);
+    try{
+      const { data } = await api.post('/api/kashier/topup', { amountUSDT: usdtNum }, { headers });
+      const url = data?.hppUrl;
+      if (url) {
+        const w = window.open(url, '_blank');
+        if (!w) window.location.href = url; // popup blocked → same tab
+        else alert('Checkout opened in a new tab. After paying, return here and press Refresh.');
+      }
+    } catch (err) {
+      const code = err?.response?.data?.error;
+      if (code === 'min_topup_is_10') alert('Minimum top-up is 10 USDT');
+      else if (code === 'invalid_amount') alert('Please enter a valid amount.');
+      else alert('Could not start online top-up.');
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <form onSubmit={startTopup} className="mt-3 space-y-3">
+      <div className="text-sm text-gray-600">
+        Pay securely by card via Kashier. Your wallet is credited once Kashier confirms payment (webhook).
+      </div>
+      <input
+        type="number"
+        min={10}
+        step="0.01"
+        value={usdt}
+        onChange={e=>setUsdt(e.target.value)}
+        className="border p-2 rounded w-full"
+        placeholder="Amount in USDT (min 10)"
+        required
+      />
+      <div className="text-sm text-gray-500">
+        You’ll pay approximately <b>{Number.isFinite(egp)? egp.toFixed(2) : 0} {currency}</b> (rate {rate} {currency} / USDT).
+      </div>
+      <button
+        disabled={busy || !valid}
+        className={`px-3 py-2 rounded text-white ${busy || !valid ? 'bg-gray-400' : 'bg-indigo-600'}`}
+      >
+        {busy ? 'Opening…' : 'Pay with Card (Kashier)'}
+      </button>
+    </form>
   );
 }

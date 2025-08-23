@@ -57,22 +57,22 @@ export default function LoginUnified(){
       </div>
 
       {/* nav */}
-      <nav className="relative z-10 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl grid place-items-center">
-              <MessageSquare className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Codinovo
-            </span>
-          </Link>
-          <div className="hidden md:flex items-center gap-8">
-            <Link to="/docs" className="text-gray-600 hover:text-blue-600 transition-colors">Docs</Link>
-            <Link to="/register" className="text-gray-600 hover:text-blue-600 transition-colors">Register</Link>
-          </div>
-        </div>
-      </nav>
+{/*       <nav className="relative z-10 px-6 py-4"> */}
+{/*         <div className="max-w-7xl mx-auto flex items-center justify-between"> */}
+{/*           <Link to="/" className="flex items-center gap-3"> */}
+{/*             <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl grid place-items-center"> */}
+{/*               <MessageSquare className="w-6 h-6 text-white" /> */}
+{/*             </div> */}
+{/*             <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"> */}
+{/*               Codinovo */}
+{/*             </span> */}
+{/*           </Link> */}
+{/*           <div className="hidden md:flex items-center gap-8"> */}
+{/*             <Link to="/docs" className="text-gray-600 hover:text-blue-600 transition-colors">Docs</Link> */}
+{/*             <Link to="/register" className="text-gray-600 hover:text-blue-600 transition-colors">Register</Link> */}
+{/*           </div> */}
+{/*         </div> */}
+{/*       </nav> */}
 
       {/* content */}
       <main className="relative z-10 px-6 pt-10 pb-24">
@@ -183,42 +183,25 @@ export default function LoginUnified(){
       </main>
 
       {/* footer */}
-      <footer className="bg-gray-900 text-white px-6 py-12">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg grid place-items-center">
-              <MessageSquare className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl font-bold">Codinovo</span>
-          </div>
-          <div className="grid md:grid-cols-4 gap-8">
-            <FooterCol title="Product" links={[["/#features","Features"],["/#pricing","Pricing"],["/docs","Documentation"]]} />
-            <FooterCol title="Company" links={[["/about","About"],["/blog","Blog"],["/careers","Careers"]]} />
-            <FooterCol title="Support" links={[["/help","Help Center"],["/contact","Contact Us"],["/status","Status"]]} />
-            <FooterCol title="Legal" links={[["/privacy","Privacy"],["/terms","Terms"],["/security","Security"]]} />
-          </div>
-          <div className="border-top border-gray-800 mt-12 pt-8 text-center text-gray-400">
-            <p>&copy; {new Date().getFullYear()} Codinovo. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
-  );
-}
-
-function FooterCol({ title, links }) {
-  return (
-    <div>
-      <h4 className="font-semibold mb-4">{title}</h4>
-      <ul className="space-y-2 text-gray-400">
-        {links.map(([to, label]) => (
-          to.startsWith('#') || to.startsWith('/#') ? (
-            <li key={to}><a href={to} className="hover:text-white transition-colors">{label}</a></li>
-          ) : (
-            <li key={to}><Link to={to} className="hover:text-white transition-colors">{label}</Link></li>
-          )
-        ))}
-      </ul>
+{/*       <footer className="bg-gray-900 text-white px-6 py-12"> */}
+{/*         <div className="max-w-7xl mx-auto"> */}
+{/*           <div className="flex items-center gap-3 mb-8"> */}
+{/*             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg grid place-items-center"> */}
+{/*               <MessageSquare className="w-5 h-5 text-white" /> */}
+{/*             </div> */}
+{/*             <span className="text-xl font-bold">Codinovo</span> */}
+{/*           </div> */}
+{/*           <div className="grid md:grid-cols-4 gap-8"> */}
+{/*             <FooterCol title="Product" links={[["/#features","Features"],["/#pricing","Pricing"],["/docs","Documentation"]]} /> */}
+{/*             <FooterCol title="Company" links={[["/about","About"],["/blog","Blog"],["/careers","Careers"]]} /> */}
+{/*             <FooterCol title="Support" links={[["/help","Help Center"],["/contact","Contact Us"],["/status","Status"]]} /> */}
+{/*             <FooterCol title="Legal" links={[["/privacy","Privacy"],["/terms","Terms"],["/security","Security"]]} /> */}
+{/*           </div> */}
+{/*           <div className="border-top border-gray-800 mt-12 pt-8 text-center text-gray-400"> */}
+{/*             <p>&copy; {new Date().getFullYear()} Codinovo. All rights reserved.</p> */}
+{/*           </div> */}
+{/*         </div> */}
+{/*       </footer> */}
     </div>
   );
 }

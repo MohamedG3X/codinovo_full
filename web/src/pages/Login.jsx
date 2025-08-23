@@ -74,7 +74,7 @@ export default function Login() {
               Sign in to access your API dashboard, OTP logs, wallet, and analytics. Secure by design — fast by default.
             </p>
             <div className="mt-8 flex items-center gap-3 text-gray-600">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl grid place-items-center text-white"> <Lock className="w-5 h-5"/> </div>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl grid place-items-center text-white"> <Lock className="w-5 h-5" /> </div>
               <div>
                 <div className="font-semibold text-gray-900">Enterprise-grade security</div>
                 <div className="text-sm">JWT sessions, role-based access, audit logs</div>
@@ -141,7 +141,7 @@ export default function Login() {
                 disabled={busy || !canSubmit}
                 className={`w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 text-white ${busy ? 'bg-gray-400' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:scale-[1.02] hover:shadow-md'}`}
               >
-                {busy ? (<><Loader2 className="w-4 h-4 animate-spin"/> Signing in…</>) : (<>Login <ArrowRight className="w-4 h-4"/></>)}
+                {busy ? (<><Loader2 className="w-4 h-4 animate-spin" /> Signing in…</>) : (<>Login <ArrowRight className="w-4 h-4" /></>)}
               </button>
 
               <div className="flex items-center justify-between text-sm text-gray-600">
@@ -166,10 +166,10 @@ export default function Login() {
             <span className="text-xl font-bold">Codinovo</span>
           </div>
           <div className="grid md:grid-cols-4 gap-8">
-            <FooterCol title="Product" links={[["/#features","Features"],["/#pricing","Pricing"],["/docs","Documentation"]]} />
-            <FooterCol title="Company" links={[["/about","About"],["/blog","Blog"],["/careers","Careers"]]} />
-            <FooterCol title="Support" links={[["/help","Help Center"],["/contact","Contact Us"],["/status","Status"]]} />
-            <FooterCol title="Legal" links={[["/privacy","Privacy"],["/terms","Terms"],["/security","Security"]]} />
+            <FooterCol title="Product" links={[["/#features", "Features"], ["/#pricing", "Pricing"], ["/docs", "Documentation"]]} />
+            <FooterCol title="Company" links={[["/about", "About"], ["/blog", "Blog"], ["/careers", "Careers"]]} />
+            <FooterCol title="Support" links={[["/help", "Help Center"], ["/contact", "Contact Us"], ["/status", "Status"]]} />
+            <FooterCol title="Legal" links={[["/privacy", "Privacy"], ["/terms", "Terms"], ["/security", "Security"]]} />
           </div>
           <div className="border-top border-gray-800 mt-12 pt-8 text-center text-gray-400">
             <p>&copy; {new Date().getFullYear()} Codinovo. All rights reserved.</p>

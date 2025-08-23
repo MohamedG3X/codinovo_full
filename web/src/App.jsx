@@ -1,5 +1,5 @@
 // web/src/App.jsx
-import React from 'react'
+import React, { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Home from './pages/Home'
 import LoginUnified from './pages/LoginUnified'
@@ -16,9 +16,22 @@ import DepositConfigAdmin from './pages/Admin/DepositConfig';
 import LiveDemo from './pages/LiveDemo';
 import DedicatedOrders from './pages/Admin/DedicatedOrders.jsx';
 import GlobalSenders from './pages/Admin/GlobalSenders.jsx'; // <-- NEW
+import Footer from './components/Footer';
+import Header from './components/Header';
+import About from './pages/company/About';
+import Careers from './pages/company/Careers';
+import Blog from './pages/company/Blog.jsx'
+import HelpCenter from './pages/support/HelpCenter.jsx'
+import Contact_us from './pages/support/Contact_us';
+import FAQ from './pages/support/FAQ.jsx'
+import Privacy from './pages/Legal/Privacy.jsx'
+import Terms from './pages/Legal/Terms';
+import Security from './pages/Legal/Security.jsx'
+import AOS from "aos";
+import "aos/dist/aos.css";
+import PasswordReset from './pages/PasswordReset.jsx';
 
 
-// testtt
 
 function Guard({ children, expect = 'API' }) {
   const token = localStorage.getItem(expect === 'ADMIN' ? 'admin_token' : 'api_token')
@@ -26,12 +39,24 @@ function Guard({ children, expect = 'API' }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    AOS.init({
+      offset: 100,
+      duration: 800,
+      easing: "ease-in",
+      delay: 100,
+    });
+    AOS.refresh();
+  }, []);
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
+      <Header />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginUnified />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot" element={<PasswordReset />} />
+
 
         {/* API user app */}
         <Route path="/app" element={<Guard expect="API"><Dashboard /></Guard>} />
@@ -39,6 +64,15 @@ export default function App() {
         <Route path="/settings" element={<Guard expect="API"><Settings /></Guard>} />
         <Route path="/invoices" element={<Guard expect="API"><InvoicesUser /></Guard>} />
         <Route path="/demo" element={<LiveDemo />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/blog" element={<Blog />} />
+        <Route path="/careers" element={<Careers />} />
+        <Route path="/help" element={<HelpCenter />} />
+        <Route path="/contact" element={<Contact_us />} />
+        <Route path="/faq" element={<FAQ />} />
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/security" element={<Security />} />
 
 
         {/* Admin app */}
@@ -56,6 +90,7 @@ export default function App() {
         {/* 404 */}
         <Route path="*" element={<div className="px-10">Not found.</div>} />
       </Routes>
+      <Footer />
     </div>
   )
 }

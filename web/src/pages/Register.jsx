@@ -4,10 +4,12 @@ import { api } from '../lib/api';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
 
-export default function Register(){
+export default function Register() {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
-    username:'', password:'', companyName:'', contactPhone:'', applicantPosition:'', contactEmail:''
+    username: '', password: '', jobTitle: '',
+    companyWebsite: '',
+    companyDescription: '', companyName: '', contactPhone: '', applicantPosition: '', contactEmail: ''
   });
   const [usernameForOtp, setUsernameForOtp] = useState('');
   const [otp, setOtp] = useState('');
@@ -32,6 +34,7 @@ export default function Register(){
     const errors = [];
     if (!form.companyName.trim()) errors.push('Company name is required');
     if (!form.applicantPosition.trim()) errors.push('Applicant position is required');
+    if (!form.jobTitle.trim()) errors.push('Job title is required'); // ✅ جديد
     if (!form.username.trim()) errors.push('Username is required');
     if (!form.password) errors.push('Password is required');
     // Password strength (mirror back-end)
@@ -52,24 +55,24 @@ export default function Register(){
     return errors;
   }
 
-  async function submitDetails(e){
+  async function submitDetails(e) {
     e.preventDefault();
     setBusy(true); setMsg(null);
 
     const errs = validateStep1();
     if (errs.length) {
       setBusy(false);
-      setMsg({ type:'err', text: errs[0] });
+      setMsg({ type: 'err', text: errs[0] });
       return;
     }
 
-    try{
+    try {
       // Back-end expects digits-only; we already store digits from PhoneInput
       await api.post('/auth/register', form);
       setUsernameForOtp(form.username);
       setStep(2);
-      setMsg({ type:'ok', text: `We sent a 6-digit code to WhatsApp: +${form.contactPhone}` });
-    }catch(err){
+      setMsg({ type: 'ok', text: `We sent a 6-digit code to WhatsApp: +${form.contactPhone}` });
+    } catch (err) {
       const code = err?.response?.data?.error;
       let text = 'Registration failed';
       if (code === 'username_taken') text = 'Username is already taken';
@@ -77,35 +80,35 @@ export default function Register(){
       if (code === 'invalid_phone') text = 'Please enter a valid phone number';
       if (code === 'weak_password') text = 'Password too weak. Must have upper, lower, number, special, 8+ chars.';
       if (code === 'missing_required_fields') text = 'Please fill all required fields';
-      setMsg({ type:'err', text });
-    }finally{
+      setMsg({ type: 'err', text });
+    } finally {
       setBusy(false);
     }
   }
 
-  async function verifyOtp(e){
+  async function verifyOtp(e) {
     e.preventDefault();
     setBusy(true); setMsg(null);
-    try{
+    try {
       await api.post('/auth/verify-otp', { username: usernameForOtp, otp });
-      setMsg({ type:'ok', text: 'OTP verified. Your account is under review.' });
+      setMsg({ type: 'ok', text: 'OTP verified. Your account is under review.' });
       setStep(3);
-    }catch(err){
+    } catch (err) {
       const code = err?.response?.data?.error;
-      setMsg({ type:'err', text: code === 'invalid_or_expired_otp' ? 'Invalid or expired code' : 'Verification failed' });
-    }finally{
+      setMsg({ type: 'err', text: code === 'invalid_or_expired_otp' ? 'Invalid or expired code' : 'Verification failed' });
+    } finally {
       setBusy(false);
     }
   }
 
-  async function resend(){
+  async function resend() {
     setBusy(true); setMsg(null);
-    try{
+    try {
       await api.post('/auth/resend-otp', { username: usernameForOtp });
-      setMsg({ type:'ok', text: 'OTP resent to your WhatsApp.' });
-    }catch{
-      setMsg({ type:'err', text: 'Failed to resend OTP' });
-    }finally{
+      setMsg({ type: 'ok', text: 'OTP resent to your WhatsApp.' });
+    } catch {
+      setMsg({ type: 'err', text: 'Failed to resend OTP' });
+    } finally {
       setBusy(false);
     }
   }
@@ -125,7 +128,7 @@ export default function Register(){
       <h1 className="text-2xl font-semibold mb-4">Create your account</h1>
 
       {msg && (
-        <div className={`mb-3 text-sm px-3 py-2 rounded ${msg.type==='ok'?'bg-green-50 text-green-700 border border-green-200':'bg-red-50 text-red-700 border border-red-200'}`}>
+        <div className={`mb-3 text-sm px-3 py-2 rounded ${msg.type === 'ok' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
           {msg.text}
         </div>
       )}
@@ -179,13 +182,36 @@ export default function Register(){
             value={form.username}
             onChange={on('username')}
           />
+          {/* ======================================================================== */}
+          <input
+            className="border rounded w-full p-2"
+            placeholder="Job Title *"
+            value={form.jobTitle}
+            onChange={on('jobTitle')}
+          />
 
+          <input
+            className="border rounded w-full p-2"
+            placeholder="Company Website (optional)"
+            value={form.companyWebsite}
+            onChange={on('companyWebsite')}
+          />
+
+          <textarea
+            className="border rounded w-full p-2"
+            placeholder="Company Description (optional)"
+            value={form.companyDescription}
+            onChange={on('companyDescription')}
+            rows={3}
+          />
+
+          {/* ======================================================================== */}
           <input
             className="border rounded w-full p-2"
             type="password"
             placeholder="Password *"
             value={form.password}
-            onChange={(e)=>{ on('password')(e); checkPw(e.target.value); }}
+            onChange={(e) => { on('password')(e); checkPw(e.target.value); }}
           />
 
           {/* Password hints */}
@@ -199,9 +225,9 @@ export default function Register(){
 
           <button
             disabled={busy}
-            className={`px-4 py-2 text-white rounded w-full ${busy?'bg-gray-400':'bg-blue-600'}`}
+            className={`px-4 py-2 text-white rounded w-full ${busy ? 'bg-gray-400' : 'bg-blue-600'}`}
           >
-            {busy?'Submitting…':'Continue'}
+            {busy ? 'Submitting…' : 'Continue'}
           </button>
         </form>
       )}
@@ -213,12 +239,12 @@ export default function Register(){
             className="border rounded w-full p-2 tracking-widest text-center text-lg"
             placeholder="Enter OTP"
             value={otp}
-            onChange={e=>setOtp(e.target.value)}
+            onChange={e => setOtp(e.target.value)}
             maxLength={6}
           />
           <div className="flex gap-3">
-            <button disabled={busy} className={`px-4 py-2 text-white rounded ${busy?'bg-gray-400':'bg-blue-600'}`}>
-              {busy?'Verifying…':'Verify OTP'}
+            <button disabled={busy} className={`px-4 py-2 text-white rounded ${busy ? 'bg-gray-400' : 'bg-blue-600'}`}>
+              {busy ? 'Verifying…' : 'Verify OTP'}
             </button>
             <button type="button" onClick={resend} disabled={busy} className="px-4 py-2 border rounded">
               Resend
