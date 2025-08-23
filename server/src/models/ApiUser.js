@@ -27,6 +27,12 @@ const ApiUserSchema = new mongoose.Schema({
   signupOtpCode: { type: String, default: null },
   signupOtpExpiresAt: { type: Date, default: null },
 
+  /* ---- Password Reset (NEW) ---- */
+  resetOtpCode: { type: String, default: null },
+  resetOtpExpiresAt: { type: Date, default: null },
+  resetOtpAttempts: { type: Number, default: 0 },
+  lastPasswordResetAt: { type: Date, default: null },
+
   /* ---- Dedicated Number subscription (NEW) ---- */
   dedicatedClientId: { type: String, default: null },     // LocalAuth clientId for this user
   dedicatedSenderPhone: { type: String, default: '' },    // your prepared SIM number

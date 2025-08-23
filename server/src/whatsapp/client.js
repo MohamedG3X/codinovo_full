@@ -1,12 +1,15 @@
+// server/src/whatsapp/client.js
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth } = pkg;
 import qrcode from 'qrcode-terminal';
 import fs from 'fs';
 import path from 'path';
 
+// ====== CONSTANTS ======
 const DEFAULT_CLIENT_ID = 'codinovo';
 const SESS_BASE = path.join(process.cwd(), '.wwebjs_auth');
 
+// ====== IN-MEMORY STATE ======
 /** In-memory registry */
 const state = {
   defaults: {
@@ -15,8 +18,11 @@ const state = {
     lastError: null,
     lastQR: null,
     initializing: false,   // single-flight guard
+    // NEW: timestamps
+    lastReadyAt: null,
+    lastEventAt: null,
   },
-  // clientId -> { client, ready, lastError, lastQR, initializing }
+  // clientId -> { client, ready, lastError, lastQR, initializing, lastReadyAt, lastEventAt }
   pool: new Map(),
 
   // -------- Global sender pool (round-robin) --------
@@ -28,7 +34,8 @@ const state = {
   },
 };
 
-/* ------------ helpers ------------- */
+// ====== HELPERS ======
+function nowTs() { return Date.now(); }
 function digitsOnly(s) { return String(s || '').replace(/\D/g, ''); }
 function sessionDirFor(clientId) { return path.join(SESS_BASE, `session-${clientId}`); }
 
@@ -69,6 +76,45 @@ function mkClient(clientId) {
   return new Client(opts);
 }
 
+// ====== DISK UTILITIES (NEW) ======
+/** list all clientIds that have a LocalAuth folder on disk */
+function listAuthSessionClientIds() {
+  try {
+    if (!fs.existsSync(SESS_BASE)) return [];
+    const dirs = fs.readdirSync(SESS_BASE)
+      .filter(name => name.startsWith('session-'))
+      .map(name => name.replace(/^session-/, ''))
+      .filter(Boolean);
+    return Array.from(new Set(dirs));
+  } catch { return []; }
+}
+
+/** get total size and latest mtime of a folder tree */
+function folderStats(p) {
+  let size = 0;
+  let mtime = 0;
+  try {
+    if (!fs.existsSync(p)) return { size, mtime };
+    const walk = (dir) => {
+      for (const f of fs.readdirSync(dir)) {
+        const fp = path.join(dir, f);
+        const st = fs.statSync(fp);
+        mtime = Math.max(mtime, st.mtimeMs || 0);
+        if (st.isDirectory()) walk(fp);
+        else size += st.size || 0;
+      }
+    };
+    walk(p);
+  } catch {}
+  return { size, mtime };
+}
+
+/** recursively delete a folder (safe) */
+async function deleteFolderRecursive(p) {
+  try { await fs.promises.rm(p, { recursive: true, force: true }); } catch {}
+}
+
+// ====== EVENT ATTACHMENT (UPDATED) ======
 /** Attach listeners; do not throw from here */
 function attach(clientId, holder) {
   const label = clientId === DEFAULT_CLIENT_ID ? 'default' : clientId;
@@ -77,6 +123,7 @@ function attach(clientId, holder) {
   client.on('qr', (qr) => {
     try {
       holder.lastQR = qr;
+      holder.lastEventAt = nowTs(); // NEW
       console.log(`[WA:${label}] Scan this QR to login:`);
       qrcode.generate(qr, { small: true });
     } catch {}
@@ -87,6 +134,8 @@ function attach(clientId, holder) {
       holder.ready = true;
       holder.lastError = null;
       holder.initializing = false;
+      holder.lastReadyAt = nowTs();   // NEW
+      holder.lastEventAt = holder.lastReadyAt; // NEW
       console.log(`[WA:${label}] ready`);
     } catch {}
   });
@@ -96,6 +145,7 @@ function attach(clientId, holder) {
       holder.ready = false;
       holder.initializing = false;
       holder.lastError = String(msg || 'auth_failure');
+      holder.lastEventAt = nowTs(); // NEW
       console.error(`[WA:${label}] auth_failure:`, msg);
     } catch {}
   });
@@ -105,6 +155,7 @@ function attach(clientId, holder) {
       holder.ready = false;
       holder.initializing = false;
       holder.lastError = String(reason || 'disconnected');
+      holder.lastEventAt = nowTs(); // NEW
       console.warn(`[WA:${label}] disconnected:`, reason);
       // Leave not-ready; higher layers will fallback (dedicated->global->default)
     } catch {}
@@ -125,7 +176,7 @@ async function initializeOnce(clientId, holder) {
   }
 }
 
-/* ---------- Default client ---------- */
+// ====== DEFAULT CLIENT ======
 export function initWhatsApp() {
   if (state.defaults.client) return state.defaults.client;
   state.defaults.client = mkClient(DEFAULT_CLIENT_ID);
@@ -133,13 +184,15 @@ export function initWhatsApp() {
   state.defaults.lastError = null;
   state.defaults.lastQR = null;
   state.defaults.initializing = false;
+  state.defaults.lastReadyAt = null; // NEW
+  state.defaults.lastEventAt = null; // NEW
   attach(DEFAULT_CLIENT_ID, state.defaults);
   // fire and forget
   initializeOnce(DEFAULT_CLIENT_ID, state.defaults);
   return state.defaults.client;
 }
 
-/* ---------- Multi-client pool ---------- */
+// ====== MULTI-CLIENT POOL ======
 export function ensureClient(clientId) {
   const id = String(clientId || '').trim();
   if (!id) throw new Error('clientId_required');
@@ -150,7 +203,16 @@ export function ensureClient(clientId) {
     return h.client;
   }
 
-  const holder = { client: mkClient(id), ready: false, lastQR: null, lastError: null, initializing: false };
+  const holder = {
+    client: mkClient(id),
+    ready: false,
+    lastQR: null,
+    lastError: null,
+    initializing: false,
+    // NEW
+    lastReadyAt: null,
+    lastEventAt: null,
+  };
   state.pool.set(id, holder);
   attach(id, holder);
   initializeOnce(id, holder);
@@ -243,7 +305,10 @@ export function listSessions() {
     default: true,
     ready: state.defaults.ready,
     lastError: state.defaults.lastError || null,
-    hasQR: !!state.defaults.lastQR
+    hasQR: !!state.defaults.lastQR,
+    // NEW
+    lastReadyAt: state.defaults.lastReadyAt || null,
+    lastEventAt: state.defaults.lastEventAt || null,
   }];
   for (const [id, h] of state.pool.entries()) {
     list.push({
@@ -252,6 +317,9 @@ export function listSessions() {
       ready: !!h.ready,
       lastError: h.lastError || null,
       hasQR: !!h.lastQR,
+      // NEW
+      lastReadyAt: h.lastReadyAt || null,
+      lastEventAt: h.lastEventAt || null,
     });
   }
   return list;
@@ -264,12 +332,22 @@ export function getSession(clientId) {
       clientId: id, default: true,
       ready: state.defaults.ready,
       lastError: state.defaults.lastError || null,
-      hasQR: !!state.defaults.lastQR, qr: state.defaults.lastQR || null
+      hasQR: !!state.defaults.lastQR, qr: state.defaults.lastQR || null,
+      // NEW
+      lastReadyAt: state.defaults.lastReadyAt || null,
+      lastEventAt: state.defaults.lastEventAt || null,
     };
   }
   const h = state.pool.get(id);
   if (!h) return null;
-  return { clientId: id, default: false, ready: !!h.ready, lastError: h.lastError || null, hasQR: !!h.lastQR, qr: h.lastQR || null };
+  return {
+    clientId: id, default: false,
+    ready: !!h.ready, lastError: h.lastError || null,
+    hasQR: !!h.lastQR, qr: h.lastQR || null,
+    // NEW
+    lastReadyAt: h.lastReadyAt || null,
+    lastEventAt: h.lastEventAt || null,
+  };
 }
 
 /** Explicit restart (admin action) */
@@ -374,3 +452,74 @@ export async function sendViaGlobal(phone, text) {
     return { ok: false, via: 'GLOBAL_POOL', clientId: id, error: e?.code || e?.message || String(e) };
   }
 }
+
+/* ---------------- Admin Introspection & Cleanup (NEW) ---------------- */
+
+/** memory + disk merged snapshot used by admin sweep */
+export function listSessionsDetailedWithDisk() {
+  const mem = listSessions();
+  const seen = new Set();
+  const out = [];
+
+  // include memory-known first
+  for (const m of mem) {
+    seen.add(m.clientId);
+    const dir = sessionDirFor(m.clientId);
+    const st = folderStats(dir);
+    out.push({
+      ...m,
+      onDisk: fs.existsSync(dir),
+      diskSize: st.size,
+      diskMtime: st.mtime,
+    });
+  }
+
+  // add zombies: disk-only folders
+  const diskIds = listAuthSessionClientIds();
+  for (const id of diskIds) {
+    if (seen.has(id)) continue;
+    const dir = sessionDirFor(id);
+    const st = folderStats(dir);
+    out.push({
+      clientId: id,
+      default: id === DEFAULT_CLIENT_ID,
+      ready: false,
+      lastError: null,
+      hasQR: false,
+      lastReadyAt: null,
+      lastEventAt: null,
+      onDisk: true,
+      diskSize: st.size,
+      diskMtime: st.mtime,
+    });
+  }
+
+  return out;
+}
+
+/** Hard destroy: stop client, remove from pool & RR, delete LocalAuth folder. */
+export async function destroyAndRemoveSession(clientId, { deleteAuthFolder = true } = {}) {
+  const id = String(clientId || '').trim();
+  if (!id) throw new Error('clientId_required');
+  if (id === DEFAULT_CLIENT_ID) throw new Error('cannot_delete_default');
+
+  // remove from RR pool if present
+  try { state.global.entries.delete(id); rebuildRR(); } catch {}
+
+  // stop/destroy running client if exists
+  const h = state.pool.get(id);
+  if (h) {
+    try { await h.client.destroy(); } catch {}
+    state.pool.delete(id);
+  }
+
+  // delete LocalAuth folder
+  if (deleteAuthFolder) {
+    const dir = sessionDirFor(id);
+    await deleteFolderRecursive(dir);
+  }
+  return true;
+}
+
+// Expose some fs helpers for admin routes (optional)
+export const _sessionFs = { SESS_BASE, sessionDirFor, listAuthSessionClientIds, folderStats };

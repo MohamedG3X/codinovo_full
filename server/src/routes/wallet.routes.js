@@ -1,3 +1,4 @@
+// server/src/routes/wallet.routes.js
 import { Router } from 'express';
 import multer from 'multer';
 import path from 'path';
@@ -13,7 +14,6 @@ const upload = multer({
   dest: proofDir,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: (_req, file, cb) => {
-    // allow images only
     if (/^image\//.test(file.mimetype)) return cb(null, true);
     cb(new Error('invalid_file_type'));
   }
@@ -28,7 +28,7 @@ r.get('/wallet/balance', requireAuth, requireApiUser, async (req, res) => {
   res.json({ balance: Number(user.walletBalance || 0) });
 });
 
-// submit top-up request
+// submit manual top-up (with proof)
 r.post('/wallet/topup', requireAuth, requireApiUser, upload.single('proof'), async (req, res) => {
   try {
     const { amount, txHash } = req.body || {};
@@ -37,8 +37,6 @@ r.post('/wallet/topup', requireAuth, requireApiUser, upload.single('proof'), asy
     if (!amt || isNaN(amt) || amt <= 0) {
       return res.status(400).json({ error: 'invalid_amount' });
     }
-
-    // 🔒 Enforce minimum deposit of 10 USDT
     if (amt < 10) {
       return res.status(400).json({ error: 'min_topup_is_10', min: 10 });
     }
@@ -49,7 +47,7 @@ r.post('/wallet/topup', requireAuth, requireApiUser, upload.single('proof'), asy
       amount: amt,
       status: 'PENDING',
       proofPath: req.file ? req.file.path : null,
-      description: txHash ? `User top-up, tx: ${txHash}` : 'User requested top-up'
+      description: txHash ? `User top-up, tx: ${txHash}` : 'User requested top-up',
     });
 
     res.json({ ok: true, transaction: tx });
@@ -62,6 +60,7 @@ r.post('/wallet/topup', requireAuth, requireApiUser, upload.single('proof'), asy
   }
 });
 
+// list my transactions
 r.get('/wallet/transactions', requireAuth, requireApiUser, async (req, res) => {
   try {
     const { status } = req.query;
@@ -79,6 +78,26 @@ r.get('/wallet/transactions', requireAuth, requireApiUser, async (req, res) => {
   } catch (err) {
     console.error('wallet/transactions error:', err);
     res.status(500).json({ error: 'server_error' });
+  }
+});
+
+// refresh (no auto-approval; just return latest balance + txs)
+r.post('/wallet/refresh', requireAuth, requireApiUser, async (req, res) => {
+  try {
+    const user = await ApiUser.findById(req.user.id, { walletBalance: 1 });
+    const items = await WalletTransaction
+      .find({ apiUser: req.user.id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    res.json({
+      ok: true,
+      balance: Number(user?.walletBalance || 0),
+      transactions: items,
+    });
+  } catch (e) {
+    console.error('[wallet/refresh] error:', e);
+    res.status(500).json({ ok: false });
   }
 });
 

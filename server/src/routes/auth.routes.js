@@ -6,6 +6,7 @@ import ApiUser from '../models/ApiUser.js';
 import Admin from '../models/Admin.js';
 import { config } from '../config.js';
 import { sendWaMessage } from '../whatsapp/client.js';
+import { notifyLogin, notifyPasswordChanged } from '../lib/mailer.js'; // <-- NEW
 
 const r = Router();
 
@@ -53,6 +54,10 @@ r.post('/login', async (req, res) => {
   }
 
   const token = jwt.sign({ id: user._id, type: 'API' }, config.jwtSecret, { expiresIn: '7d' });
+
+  // 🔔 إشعار تسجيل دخول (غير حاجز)
+  try { notifyLogin(user, (req.headers['x-forwarded-for'] || req.ip || '').toString()); } catch (_) {}
+
   return res.json({
     token,
     type: 'API',
@@ -180,6 +185,118 @@ r.post('/resend-otp', async (req, res) => {
   }
 
   return res.json({ ok: true, message: 'OTP resent' });
+});
+
+/* -------------------- PASSWORD RESET FLOW (NEW) -------------------- */
+
+function tooManyResetAttempts(u) {
+  return (u.resetOtpAttempts || 0) >= 5;
+}
+
+// Step 1: request reset code
+r.post('/password/forgot', async (req, res) => {
+  const { username } = req.body || {};
+  if (!username) return res.status(400).json({ error: 'username_required' });
+
+  const user = await ApiUser.findOne({ username });
+  if (!user || !user.contactPhone) {
+    return res.json({ ok: true, message: 'If the user exists, an OTP has been sent.' });
+  }
+
+  const otp = genOtp();
+  user.resetOtpCode = otp;
+  user.resetOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+  user.resetOtpAttempts = 0;
+  await user.save();
+
+  try {
+    await sendWaMessage(
+      user.contactPhone,
+      `Your Codinovo password reset code is: ${otp}\nThis code expires in 10 minutes.`
+    );
+  } catch (err) {
+    console.error('Reset OTP send failed:', err);
+  }
+
+  return res.json({ ok: true, message: 'If the user exists, an OTP has been sent.' });
+});
+
+// Step 2: verify reset code -> short-lived reset token
+r.post('/password/verify', async (req, res) => {
+  const { username, otp } = req.body || {};
+  if (!username || !otp) return res.status(400).json({ error: 'missing_fields' });
+
+  const user = await ApiUser.findOne({ username });
+  if (!user) return res.status(400).json({ error: 'invalid_or_expired_otp' });
+
+  if (tooManyResetAttempts(user)) {
+    return res.status(429).json({ error: 'too_many_attempts' });
+  }
+
+  user.resetOtpAttempts = (user.resetOtpAttempts || 0) + 1;
+  await user.save();
+
+  const expired = !user.resetOtpExpiresAt || Date.now() > new Date(user.resetOtpExpiresAt).getTime();
+  const wrong = !user.resetOtpCode || user.resetOtpCode !== String(otp || '').trim();
+  if (expired || wrong) {
+    return res.status(400).json({ error: 'invalid_or_expired_otp' });
+  }
+
+  const resetToken = jwt.sign(
+    { id: user._id, purpose: 'password_reset' },
+    config.jwtSecret,
+    { expiresIn: '10m' }
+  );
+
+  user.resetOtpCode = null;
+  user.resetOtpExpiresAt = null;
+  user.resetOtpAttempts = 0;
+  await user.save();
+
+  return res.json({ ok: true, resetToken });
+});
+
+// Step 3: set new password using resetToken (blocks old password reuse)
+r.post('/password/reset', async (req, res) => {
+  const { resetToken, newPassword } = req.body || {};
+  if (!resetToken || !newPassword) return res.status(400).json({ error: 'missing_fields' });
+
+  if (!validatePassword(newPassword)) {
+    return res.status(400).json({
+      error: 'weak_password',
+      hint: 'Min 8 chars incl. uppercase, lowercase, number, and special character.'
+    });
+  }
+
+  let payload;
+  try {
+    payload = jwt.verify(resetToken, config.jwtSecret);
+  } catch (err) {
+    return res.status(400).json({ error: 'invalid_or_expired_token' });
+  }
+
+  if (!payload?.id || payload?.purpose !== 'password_reset') {
+    return res.status(400).json({ error: 'invalid_or_expired_token' });
+  }
+
+  const user = await ApiUser.findById(payload.id);
+  if (!user) return res.status(404).json({ error: 'user_not_found' });
+
+  // 🚫 Block re-using the existing password
+  const isSameAsOld = await bcrypt.compare(newPassword, user.passwordHash);
+  if (isSameAsOld) {
+    return res.status(400).json({ error: 'password_reuse_not_allowed' });
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  user.passwordHash = passwordHash;
+  user.lastPasswordResetAt = new Date();
+  await user.save();
+
+  // 🔔 إشعار تغيير كلمة المرور (غير حاجز)
+  try { notifyPasswordChanged(user); } catch (_) {}
+
+  return res.json({ ok: true, message: 'Password updated successfully.' });
 });
 
 export default r;

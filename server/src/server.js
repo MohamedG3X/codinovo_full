@@ -1,11 +1,15 @@
 import 'dotenv/config';
+console.log('[boot] KASHIER_API_KEY length =', (process.env.KASHIER_API_KEY || process.env.KASHIER_SECRET || '').length);
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import adminSessionsRoutes from './routes/adminSessions.routes.js';
+import { startWalletMaintenanceJob } from './jobs/walletMaintenance.js';
 
 import { config } from './config.js';
 import { connectDB } from './db.js';
 import { initWhatsApp, ensureClient, globalPoolAdd } from './whatsapp/client.js';
+import kashierRoutes from './routes/kashier.routes.js';
 
 import depositRoutes from './routes/deposit.routes.js';
 import authRoutes from './routes/auth.routes.js';
@@ -32,6 +36,7 @@ process.on('unhandledRejection', (e) => console.error('[unhandledRejection]', e)
 process.on('uncaughtException', (e) => console.error('[uncaughtException]', e));
 
 const app = express();
+app.set('trust proxy', true); // <-- Add this
 
 /* static + security */
 app.use('/uploads', express.static('uploads'));
@@ -50,7 +55,8 @@ app.use('/api', billingRoutes);
 app.use('/api', walletRoutes);
 app.use('/api', invoiceRoutes);
 app.use('/demo', demoRoutes);
-
+app.use('/api', kashierRoutes);       // /api/kashier/*
+app.use('/webhooks', kashierRoutes);  // /webhooks/kashier
 // Dedicated (user + admin)
 app.use('/api/dedicated', dedicatedRoutes);   // /order, /my, /renew
 app.use('/admin/dedicated', dedicatedRoutes); // /orders, /:id/assign|activate|renew|expire
@@ -58,6 +64,7 @@ app.use('/admin/dedicated', dedicatedRoutes); // /orders, /:id/assign|activate|r
 // Admin routes
 app.use('/admin', adminRoutes);
 app.use('/admin', invoiceRoutes);
+app.use('/admin/sessions', adminSessionsRoutes);
 
 // Global senders (admin)
 app.use('/admin/global-senders', globalSendersRoutes);
@@ -70,7 +77,6 @@ app.use('/debug', debugRoutes);
 
 // Healthcheck
 app.get('/health', (_req, res) => res.json({ ok: true }));
-
 // Error handler
 app.use(errorHandler);
 
@@ -140,6 +146,7 @@ async function rehydrateSessions() {
   await initWhatsApp();     // bring back the GLOBAL/default session
   await rehydrateSessions(); // bring back ALL enabled globals + assigned/active dedicated sessions
   startInvoicingJob();
+  startWalletMaintenanceJob(); // <— add this
   app.listen(config.port, () => {
     console.log(`Server running on :${config.port}`);
   });
